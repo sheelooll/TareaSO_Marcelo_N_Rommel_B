@@ -1,0 +1,9 @@
+# La actividad 4 falla: se debe abortar solo 4, 6 y 7.
+# La rama de las empanadas (3 -> 5) debe terminar normalmente.
+1 : prender_carbon : 400 :
+2 : comprar_carne : 600 :
+3 : comprar_empanadas : 300 :
+4 : falla_parrilla : 500 : 1, 2
+5 : servir_empanadas : 200 : 3
+6 : asar_longaniza : 300 : 4
+7 : servir_mesa : 100 : 5, 6

@@ -1,0 +1,6 @@
+# Actividades sin tiempo: se sortea entre 100 y 5000 ms.
+# Se aceptan corchetes opcionales en las dependencias.
+A : bailar_cueca : :
+B : tomar_terremoto : :
+C : elevar_volantin : 700 : [A]
+D : volver_a_casa : : [B, C]
