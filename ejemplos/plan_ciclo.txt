@@ -1,0 +1,5 @@
+# Plan inválido: 2 -> 3 -> 4 -> 2 es un ciclo. Debe rechazarse.
+1 : prender_carbon : 500 :
+2 : comprar_carne : 300 : 1, 4
+3 : asar_carne : 800 : 2
+4 : servir : 100 : 3
