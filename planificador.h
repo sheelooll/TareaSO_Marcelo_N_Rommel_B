@@ -5,7 +5,7 @@
  *   Parte 1 (Marcelo): parser.c, dag.c, mensajes.c, actividad.c
  *   Parte 2 (Rommel):  planificador.c (main, fork, límite K, señales)
  *
- * Si alguno necesita cambiar algo aquí, avisar al otro antes.
+ * Si necesitai cambiar algo, avisame
  */
 #ifndef PLANIFICADOR_H
 #define PLANIFICADOR_H
