@@ -26,7 +26,9 @@ Pruebas de la Parte 1 (no necesitan el planificador):
 ```bash
 make test                                  # prueba con ejemplos/plan.txt
 ./test_parte1 ejemplos/plan_falla.txt      # prueba con otro plan
-python3 ejemplos/generar_plan.py 10000 > ejemplos/plan_10000.txt   # plan de estrés
+make generar                                            # compila el generador (en C)
+./generar_plan 10000 > ejemplos/plan_10000.txt          # plan de estrés
+./planificador ejemplos/plan_10000.txt 16
 ```
 
 ## Estructura
@@ -40,7 +42,7 @@ python3 ejemplos/generar_plan.py 10000 > ejemplos/plan_10000.txt   # plan de est
 | `actividad.c` | Marcelo | Código que ejecuta cada proceso hijo |
 | `planificador.c` | Rommel | `main`, creación de procesos, límite K, espera, señales |
 | `tests/test_parte1.c` | Marcelo | Pruebas de la Parte 1 |
-| `ejemplos/` | ambos | Planes de prueba y generador de planes grandes |
+| `ejemplos/` | ambos | Planes de prueba y `generar_plan.c`, generador de planes grandes |
 
 ## Formato de `plan.txt`
 
@@ -162,4 +164,15 @@ El programa sale con `0` si el plan se ejecutó completo (aunque alguna activida
 ### Funciones implementadas
 
 - `main`: valida los argumentos (`plan.txt` y `K`), carga el plan, arma el DAG y corre el bucle principal que controla los procesos.
--
+- `manejador_ctrl_c`: manejador de `SIGINT`; solo cambia la bandera `flag_sigint` (una variable `volatile sig_atomic_t`, lo único seguro de modificar dentro de un manejador de señal).
+- `hay_tareas_pendientes`: indica si queda alguna actividad lista o en ejecución.
+- `cancelar_hijos_activos`: envía `SIGTERM` a los hijos vivos, los espera con `waitpid` y marca como `ABORTADA` todo lo que no terminó.
+
+### Decisiones de diseño
+
+- **Límite K sin busy-waiting:** la variable `activos` cuenta los hijos vivos y solo se hace `fork()` si `activos < K`. Para esperar se usa `waitpid(-1, &status, 0)`, que bloquea al padre en el kernel hasta que termine algún hijo, sin consumir CPU.
+- **Paso de mensajes:** antes del `fork()`, el padre escribe en un pipe de entrada los mensajes de cada dependencia y cierra el extremo de escritura. El hijo los lee y deja su propio mensaje en un pipe de salida, que el padre lee cuando el hijo termina.
+- **Aislamiento de fallas:** si un hijo termina con un código distinto de `ACT_OK`, se marca como `FALLIDA` y se llama a `plan_abortar_rama()`, que cancela solo las actividades que dependían de ella. Las ramas independientes siguen ejecutándose.
+- **Ctrl+C (Seremi):** se detiene el lanzamiento de nuevas actividades, se termina a los hijos activos con `SIGTERM`, se esperan todos (sin dejar procesos zombis) y se imprime el resumen. Las actividades interrumpidas quedan como `ABORTADA`.
+- **Salida sin duplicados:** se hace `fflush(stdout)` antes de cada `fork()`, para que el hijo no herede ni vuelva a imprimir texto que el padre tenía en el buffer.
+- **Prueba de estrés:** con `./generar_plan 10000` y K = 16 el plan de 10000 actividades termina completo en unos 2,5 segundos, sin procesos colgados.

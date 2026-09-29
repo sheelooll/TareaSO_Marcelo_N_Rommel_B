@@ -10,7 +10,7 @@
 #include "planificador.h"
 
 // Variable global para detectar si el usuario presiono Ctrl+C
-static int flag_sigint = 0;
+static volatile sig_atomic_t flag_sigint = 0;
 
 // Manejador de la senal Ctrl+C (SIGINT)
 void manejador_ctrl_c(int sig) {
@@ -120,7 +120,9 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                // Crear el proceso hijo
+                // Crear el proceso hijo (fflush evita que el hijo herede y
+                // repita texto que quedó en el buffer del padre)
+                fflush(stdout);
                 pid_t pid = fork();
 
                 if (pid < 0) {
@@ -199,6 +201,13 @@ int main(int argc, char *argv[]) {
                             suc->estado = EST_LISTA;
                         }
                     }
+                } else if (flag_sigint == 1) {
+                    // Murio por el Ctrl+C: no es una falla, queda abortada
+                    if (a->fd_salida >= 0) {
+                        close(a->fd_salida);
+                        a->fd_salida = -1;
+                    }
+                    a->estado = EST_ABORTADA;
                 } else {
                     // Si la tarea fallo internamente
                     if (a->fd_salida >= 0) {

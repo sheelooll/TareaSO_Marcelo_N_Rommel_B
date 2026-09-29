@@ -7,7 +7,7 @@ LDLIBS  = -lpthread
 
 PARTE1  = parser.c dag.c mensajes.c actividad.c
 
-.PHONY: all test clean
+.PHONY: all test clean generar
 
 # Programa completo (necesita planificador.c, que es la Parte 2)
 all: planificador
@@ -22,5 +22,11 @@ test_parte1: tests/test_parte1.c $(PARTE1) planificador.h
 test: test_parte1
 	./test_parte1 ejemplos/plan.txt
 
+# Generador de planes grandes para la prueba de estrés
+generar: generar_plan
+
+generar_plan: ejemplos/generar_plan.c
+	$(CC) $(CFLAGS) -o $@ ejemplos/generar_plan.c
+
 clean:
-	rm -f planificador test_parte1 *.o
+	rm -f planificador test_parte1 generar_plan *.o
