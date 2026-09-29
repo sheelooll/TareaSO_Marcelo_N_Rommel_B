@@ -116,6 +116,17 @@ incompletos, `3` error al escribir en el pipe.
 
 ## Parte 2 — Planificador, concurrencia y señales (Rommel)
 
-<!-- Rommel: completar con tus funciones y decisiones de diseño:
-     creación de procesos, límite K sin busy-waiting, reenvío de mensajes,
-     manejo de fallas y SIGINT, prueba de estrés. -->
+### Funciones implementadas
+
+- `main`: Es la función principal que valida los argumentos (`plan.txt` y `K`), carga el plan, arma el DAG y corre el bucle principal que controla los procesos.
+- `atajar_ctrl_c`: Manejador de la señal `SIGINT` (`Ctrl+c`) que cambia la variable `hubo_ctrl_c` a 1.
+
+### Decisiones de diseño
+
+- **Límite de concurrencia K sin busy-waiting:** Llevo la cuenta de los procesos corriendo con la variable `activos`. Antes de hacer `fork()`, el ciclo verifica que `activos < K`. Para no consumir CPU innecesariamente, uso `waitpid(-1, &status, 0)`, que deja al proceso padre bloqueado en el sistema operativo hasta que algún hijo termine.
+
+- **Paso de mensajes por pipes:** Cuando una tarea tiene dependencias, el padre escribe los mensajes de los antecesores en un `pipe` de entrada (`p_in`) antes del `fork()`. El hijo lee de ahí sus insumos y escribe su mensaje de salida en otro `pipe` (`p_out`) que lee el padre al terminar.
+
+- **Aislamiento de fallas:** Si un hijo termina con un código distinto de `ACT_OK` (0), se marca como `EST_FALLIDA` y se llama a `plan_abortar_rama()`. Esto cancela en cascada solo las tareas que dependían de la que falló, permitiendo que las ramas independientes sigan su ejecución.
+
+- **Manejo de Ctrl+c (Seremi):** Se registra la señal con `signal(SIGINT, atajar_ctrl_c)`. Si el usuario presiona `Ctrl+c`, se activa la variable `hubo_ctrl_c`, se le envía un `SIGTERM` con `kill()` a los procesos hijos activos para no dejar procesos colgados, se esperan con `waitpid` y se marcan las demás tareas como `EST_ABORTADA`.
