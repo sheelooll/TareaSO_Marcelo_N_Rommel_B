@@ -116,17 +116,50 @@ incompletos, `3` error al escribir en el pipe.
 
 ## Parte 2 — Planificador, concurrencia y señales (Rommel)
 
+### Cómo compilar y ejecutar
+
+```bash
+make                                   # genera ./planificador
+./planificador <archivo_plan> <K>
+```
+
+| Argumento | Significado |
+|---|---|
+| `<archivo_plan>` | Ruta al archivo con las actividades. |
+| `<K>` | Máximo de procesos hijos corriendo al mismo tiempo (entero mayor que 0). |
+
+Ejemplos:
+
+```bash
+./planificador ejemplos/plan.txt 2             # ejecución normal
+./planificador ejemplos/plan_falla.txt 2       # aislamiento de fallas
+./planificador ejemplos/plan_sin_tiempo.txt 1  # presionar Ctrl+C mientras corre
+PROB_FALLA=0.2 ./planificador ejemplos/plan.txt 2   # fallas aleatorias
+```
+
+Al terminar se imprime un resumen con el estado de cada actividad:
+
+```
+=== RESUMEN DE EJECUCION ===
+ID         NOMBRE                     TIEMPO  ESTADO     DEPENDE DE
+1          prender_carbon              400ms  TERMINADA 
+2          comprar_carne               600ms  TERMINADA 
+3          comprar_empanadas           300ms  TERMINADA 
+4          falla_parrilla              500ms  FALLIDA   1, 2
+5          servir_empanadas            200ms  TERMINADA 3
+6          asar_longaniza              300ms  ABORTADA  4
+7          servir_mesa                 100ms  ABORTADA  5, 6
+```
+
+- `TERMINADA`: la actividad corrió y terminó bien.
+- `FALLIDA`: el proceso hijo terminó con error.
+- `ABORTADA`: no se ejecutó porque falló algo de lo que depende o porque se presionó Ctrl+C.
+
+Si se presiona `Ctrl+C` aparece `[SEREMI] Se presiono Ctrl+C. Abortando tareas...`, se terminan los hijos activos y se muestra el resumen.
+
+El programa sale con `0` si el plan se ejecutó completo (aunque alguna actividad haya fallado). Sale con `1` en estos casos: argumentos inválidos (por ejemplo `K <= 0`), archivo inexistente, plan inválido o interrupción con Ctrl+C.
+
 ### Funciones implementadas
 
-- `main`: Es la función principal que valida los argumentos (`plan.txt` y `K`), carga el plan, arma el DAG y corre el bucle principal que controla los procesos.
-- `atajar_ctrl_c`: Manejador de la señal `SIGINT` (`Ctrl+c`) que cambia la variable `hubo_ctrl_c` a 1.
-
-### Decisiones de diseño
-
-- **Límite de concurrencia K sin busy-waiting:** Llevo la cuenta de los procesos corriendo con la variable `activos`. Antes de hacer `fork()`, el ciclo verifica que `activos < K`. Para no consumir CPU innecesariamente, uso `waitpid(-1, &status, 0)`, que deja al proceso padre bloqueado en el sistema operativo hasta que algún hijo termine.
-
-- **Paso de mensajes por pipes:** Cuando una tarea tiene dependencias, el padre escribe los mensajes de los antecesores en un `pipe` de entrada (`p_in`) antes del `fork()`. El hijo lee de ahí sus insumos y escribe su mensaje de salida en otro `pipe` (`p_out`) que lee el padre al terminar.
-
-- **Aislamiento de fallas:** Si un hijo termina con un código distinto de `ACT_OK` (0), se marca como `EST_FALLIDA` y se llama a `plan_abortar_rama()`. Esto cancela en cascada solo las tareas que dependían de la que falló, permitiendo que las ramas independientes sigan su ejecución.
-
-- **Manejo de Ctrl+c (Seremi):** Se registra la señal con `signal(SIGINT, atajar_ctrl_c)`. Si el usuario presiona `Ctrl+c`, se activa la variable `hubo_ctrl_c`, se le envía un `SIGTERM` con `kill()` a los procesos hijos activos para no dejar procesos colgados, se esperan con `waitpid` y se marcan las demás tareas como `EST_ABORTADA`.
+- `main`: valida los argumentos (`plan.txt` y `K`), carga el plan, arma el DAG y corre el bucle principal que controla los procesos.
+-
